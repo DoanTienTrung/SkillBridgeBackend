@@ -4,6 +4,15 @@ import com.skillbridge.skillbridge_backend.dto.*;
 import com.skillbridge.skillbridge_backend.entity.User;
 import com.skillbridge.skillbridge_backend.Service.UserService;
 import com.skillbridge.skillbridge_backend.response.ApiResponse;
+import com.skillbridge.skillbridge_backend.security.JwtUtil;
+import com.skillbridge.skillbridge_backend.security.JwtHelper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,12 +23,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 @CrossOrigin(origins = "*")
 @Validated
+@Tag(name = "Authentication", description = "User authentication and registration endpoints")
 public class AuthController {
 
     @Autowired
@@ -28,15 +41,35 @@ public class AuthController {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-    // TODO: Add JwtUtil when implementing JWT
-    // @Autowired
-    // private JwtUtil jwtUtil;
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @Autowired
+    private JwtHelper jwtHelper;
 
     /**
      * Đăng ký user mới
      */
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserDto>> register(@Valid @RequestBody UserRegistrationDto request) {
+    @Operation(
+        summary = "Register new user", 
+        description = "Register a new student account with email, password and personal information"
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201", 
+            description = "User registered successfully",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400", 
+            description = "Invalid input or email already exists",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        )
+    })
+    public ResponseEntity<ApiResponse<UserDto>> register(
+            @Parameter(description = "User registration data", required = true)
+            @Valid @RequestBody UserRegistrationDto request) {
         try {
             User user = userService.registerUser(request);
             UserDto userDto = new UserDto(user);
@@ -54,7 +87,25 @@ public class AuthController {
      * Đăng nhập
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+    @Operation(
+        summary = "User login", 
+        description = "Authenticate user with email and password, returns JWT token"
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "User registered successfully",
+                    content = @Content(schema = @Schema(implementation = ApiResponse.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid input or email already exists",
+                    content = @Content(schema = @Schema(implementation = ApiResponse.class))
+            )
+    })
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Parameter(description = "Login credentials", required = true)
+            @Valid @RequestBody LoginRequest request) {
         try {
             // Authenticate user
             Authentication authentication = authenticationManager.authenticate(
@@ -68,8 +119,8 @@ public class AuthController {
             User user = userService.findByEmail(request.getEmail());
             UserDto userDto = new UserDto(user);
 
-            // TODO: Generate JWT token when implementing JWT
-            String token = "temporary-token"; // Placeholder
+            // Generate JWT token
+            String token = jwtUtil.generateToken(user);
 
             // Create response
             LoginResponse loginResponse = new LoginResponse(token, userDto);
@@ -87,17 +138,32 @@ public class AuthController {
      * Lấy thông tin user hiện tại
      */
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(Authentication authentication) {
+    @Operation(
+        summary = "Get current user profile", 
+        description = "Get authenticated user's profile information"
+    )
+    @SecurityRequirement(name = "JWT")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200", 
+            description = "User profile retrieved successfully",
+            content = @Content(schema = @Schema(implementation = UserDto.class))
+        ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401", 
+            description = "Not authenticated",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        )
+    })
+    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser() {
         try {
-            if (authentication == null || !authentication.isAuthenticated()) {
+            User user = jwtHelper.getCurrentUser();
+            if (user == null) {
                 ApiResponse<UserDto> response = ApiResponse.error("Chưa đăng nhập");
                 return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
             }
 
-            String email = authentication.getName();
-            User user = userService.findByEmail(email);
             UserDto userDto = new UserDto(user);
-
             ApiResponse<UserDto> response = ApiResponse.success(userDto);
             return ResponseEntity.ok(response);
 
@@ -111,6 +177,8 @@ public class AuthController {
      * Đăng xuất (placeholder)
      */
     @PostMapping("/logout")
+    @Operation(summary = "User logout", description = "Logout current user session")
+    @SecurityRequirement(name = "JWT")
     public ResponseEntity<ApiResponse<String>> logout() {
         SecurityContextHolder.clearContext();
         ApiResponse<String> response = ApiResponse.success("Đăng xuất thành công");
@@ -121,7 +189,48 @@ public class AuthController {
      * Test endpoint để kiểm tra API hoạt động
      */
     @GetMapping("/test")
+    @Operation(summary = "Test API", description = "Test endpoint to verify API is working")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "API is working")
     public ResponseEntity<ApiResponse<String>> test() {
         return ResponseEntity.ok(ApiResponse.success("API đang hoạt động tốt!", "Hello from SkillBridge API"));
+    }
+
+    /**
+     * Validate and get JWT token info
+     */
+    @GetMapping("/token-info")
+    @Operation(summary = "Get JWT token info", description = "Decode and validate JWT token information")
+    @SecurityRequirement(name = "JWT")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getTokenInfo(HttpServletRequest request) {
+        try {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Missing or invalid Authorization header"));
+            }
+
+            String token = authHeader.substring(7);
+            String email = jwtUtil.getEmailFromToken(token);
+
+            if (!jwtUtil.validateToken(token, email)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Invalid or expired token"));
+            }
+
+            Map<String, Object> tokenInfo = new HashMap<>();
+            tokenInfo.put("email", email);
+            tokenInfo.put("userId", jwtUtil.getUserIdFromToken(token));
+            tokenInfo.put("role", jwtUtil.getRoleFromToken(token));
+            tokenInfo.put("fullName", jwtUtil.getFullNameFromToken(token));
+            tokenInfo.put("isActive", jwtUtil.getIsActiveFromToken(token));
+            tokenInfo.put("issuedAt", jwtUtil.getIssuedAtDateFromToken(token));
+            tokenInfo.put("expiresAt", jwtUtil.getExpirationDateFromToken(token));
+
+            return ResponseEntity.ok(ApiResponse.success("Token info retrieved successfully", tokenInfo));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Error processing token", e.getMessage()));
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.skillbridge.skillbridge_backend.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,13 +12,25 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL) // Không serialize null fields
+@Schema(description = "Standard API response wrapper")
 public class ApiResponse<T> {
 
+    @Schema(description = "Response status", example = "true")
     private boolean success;
+    
+    @Schema(description = "Response message", example = "Operation completed successfully")
     private String message;
+    
+    @Schema(description = "Response data")
     private T data;
+    
+    @Schema(description = "Error details (if any)")
     private String error;
+    
+    @Schema(description = "Response timestamp")
     private LocalDateTime timestamp;
+    
+    @Schema(description = "Request path (if any)")
     private String path;
 
     // Constructor for success response with data

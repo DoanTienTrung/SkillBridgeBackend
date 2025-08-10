@@ -5,6 +5,10 @@ import com.skillbridge.skillbridge_backend.dto.UserRegistrationDto;
 import com.skillbridge.skillbridge_backend.entity.User;
 import com.skillbridge.skillbridge_backend.Service.UserService;
 import com.skillbridge.skillbridge_backend.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,8 +20,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 @CrossOrigin(origins = "*")
+@Tag(name = "User Management", description = "User profile and management endpoints")
 public class UserController {
 
     @Autowired
@@ -27,6 +32,8 @@ public class UserController {
      * Lấy thông tin profile của user hiện tại
      */
     @GetMapping("/profile")
+    @Operation(summary = "Get user profile", description = "Get current user's profile information")
+    @SecurityRequirement(name = "JWT")
     public ResponseEntity<ApiResponse<UserDto>> getProfile(Authentication authentication) {
         try {
             String email = authentication.getName();
@@ -44,8 +51,11 @@ public class UserController {
      * Cập nhật profile
      */
     @PutMapping("/profile")
+    @Operation(summary = "Update user profile", description = "Update current user's profile information")
+    @SecurityRequirement(name = "JWT")
     public ResponseEntity<ApiResponse<UserDto>> updateProfile(
             Authentication authentication,
+            @Parameter(description = "Updated profile data", required = true)
             @Valid @RequestBody UserRegistrationDto updateDto) {
 
         try {
@@ -66,6 +76,8 @@ public class UserController {
      * Lấy danh sách tất cả học viên (chỉ cho teacher/admin)
      */
     @GetMapping("/students")
+    @Operation(summary = "Get all students", description = "Get list of all students (Teacher/Admin only)")
+    @SecurityRequirement(name = "JWT")
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserDto>>> getAllStudents() {
         try {
@@ -85,8 +97,12 @@ public class UserController {
      * Lấy thông tin user theo ID (chỉ cho admin)
      */
     @GetMapping("/{id}")
+    @Operation(summary = "Get user by ID", description = "Get user information by ID (Admin only)")
+    @SecurityRequirement(name = "JWT")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<UserDto>> getUserById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<UserDto>> getUserById(
+            @Parameter(description = "User ID", required = true)
+            @PathVariable Long id) {
         try {
             User user = userService.findById(id);
             UserDto userDto = new UserDto(user);
@@ -102,8 +118,12 @@ public class UserController {
      * Kích hoạt/vô hiệu hóa user (chỉ cho admin)
      */
     @PutMapping("/{id}/toggle-active")
+    @Operation(summary = "Toggle user active status", description = "Activate/Deactivate user account (Admin only)")
+    @SecurityRequirement(name = "JWT")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<UserDto>> toggleUserActive(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<UserDto>> toggleUserActive(
+            @Parameter(description = "User ID", required = true)
+            @PathVariable Long id) {
         try {
             User user = userService.toggleUserActive(id);
             UserDto userDto = new UserDto(user);
