@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -80,7 +81,47 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
-    // Handle lesson not found
+    // Handle file storage exceptions
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<ApiResponse<Object>> handleFileStorageException(
+            FileStorageException ex, WebRequest request) {
+
+        ApiResponse<Object> response = ApiResponse.error(
+                ex.getMessage(),
+                "File storage error",
+                request.getDescription(false)
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // Handle invalid file exceptions
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInvalidFileException(
+            InvalidFileException ex, WebRequest request) {
+
+        ApiResponse<Object> response = ApiResponse.error(
+                ex.getMessage(),
+                "Invalid file",
+                request.getDescription(false)
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    // Handle file size exceeded exception
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMaxSizeException(
+            MaxUploadSizeExceededException ex, WebRequest request) {
+
+        ApiResponse<Object> response = ApiResponse.error(
+                "File quá lớn. Kích thước tối đa cho phép là 50MB",
+                "File size exceeded",
+                request.getDescription(false)
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.PAYLOAD_TOO_LARGE);
+    }
     @ExceptionHandler(LessonNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> handleLessonNotFoundException(
             LessonNotFoundException ex, WebRequest request) {

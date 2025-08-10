@@ -47,6 +47,12 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-resources/**").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
 
+                        // ✅ FIX CORS: Cho phép OPTIONS requests
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // ✅ Cho phép truy cập uploaded files
+                        .requestMatchers("/uploads/**").permitAll()
+
                         .requestMatchers(HttpMethod.GET, "/listening-lessons/**").permitAll()
                         .requestMatchers("/categories/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
