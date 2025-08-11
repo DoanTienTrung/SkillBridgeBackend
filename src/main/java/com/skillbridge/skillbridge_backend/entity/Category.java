@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import com.fasterxml.jackson.annotation.JsonIgnore;  // ✅ THÊM IMPORT
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -33,10 +34,12 @@ public class Category {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Relationships
+    // ✅ THÊM @JsonIgnore để ignore relationships khi serialize
+    @JsonIgnore
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ListeningLesson> listeningLessons = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ReadingLesson> readingLessons = new ArrayList<>();
 }
