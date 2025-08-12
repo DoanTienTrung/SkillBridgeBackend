@@ -13,7 +13,9 @@ import org.hibernate.annotations.Where;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "listening_lessons")
@@ -71,6 +73,9 @@ public class ListeningLesson {
     // Relationships
     @OneToMany(mappedBy = "listeningLesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Question> questions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<LessonVocabulary> lessonVocabularies = new ArrayList<>();
 
     // Note: UserLessonProgress relationship is handled through lessonId and lessonType
     // No direct @OneToMany mapping needed since UserLessonProgress uses polymorphic approach

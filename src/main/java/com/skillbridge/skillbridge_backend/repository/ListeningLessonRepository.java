@@ -1,6 +1,7 @@
 package com.skillbridge.skillbridge_backend.repository;
 
 import com.skillbridge.skillbridge_backend.entity.ListeningLesson;
+import com.skillbridge.skillbridge_backend.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -87,4 +88,7 @@ public interface ListeningLessonRepository extends JpaRepository<ListeningLesson
      * Top 5 bài mới nhất
      */
     List<ListeningLesson> findTop5ByStatusOrderByCreatedAtDesc(ListeningLesson.Status status);
+
+    List<ListeningLesson> findAllByOrderByCreatedAtDesc();
+    List<ListeningLesson> findByCreatedByOrderByCreatedAtDesc(User createdBy);
 }

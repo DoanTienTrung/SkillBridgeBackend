@@ -1,8 +1,10 @@
 package com.skillbridge.skillbridge_backend.controller;
 
 import com.skillbridge.skillbridge_backend.Service.ListeningLessonService;
+import com.skillbridge.skillbridge_backend.dto.LessonPreviewDto;
 import com.skillbridge.skillbridge_backend.dto.ListeningLessonCreateDto;
 import com.skillbridge.skillbridge_backend.dto.ListeningLessonDto;
+import com.skillbridge.skillbridge_backend.dto.ListeningLessonUpdateDto;
 import com.skillbridge.skillbridge_backend.entity.ListeningLesson;
 import com.skillbridge.skillbridge_backend.entity.User;
 import com.skillbridge.skillbridge_backend.mapper.ListeningLessonMapper;
@@ -190,16 +192,126 @@ public class ListeningLessonController {
         return ResponseEntity.ok(ApiResponse.success("Tạo bài học thành công", lessonDto));
     }
 
+    @GetMapping("/{id}/preview")
+    @Operation(summary = "Preview lesson", description = "Get lesson preview data")
+    public ResponseEntity<ApiResponse<LessonPreviewDto>> previewLesson(
+            @PathVariable Long id) {
+
+        LessonPreviewDto preview = lessonService.getPreviewData(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy preview thành công", preview));
+    }
+
     @PutMapping("/{id}/publish")
-    @Operation(summary = "Publish lesson", description = "Publish a draft lesson (Teacher/Admin only)")
-    @SecurityRequirement(name = "JWT")
+    @Operation(summary = "Publish lesson", description = "Publish lesson after validation")
     @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ListeningLessonDto>> publishLesson(
-            @Parameter(description = "Lesson ID", required = true)
             @PathVariable Long id) {
+
+        // Validate trước khi publish
+        List<String> validationErrors = lessonService.validateLessonForPublish(id);
+        if (!validationErrors.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Validation failed: " + String.join(", ", validationErrors)));
+        }
+
         ListeningLesson lesson = lessonService.publishLesson(id);
         ListeningLessonDto lessonDto = ListeningLessonMapper.toDto(lesson);
 
         return ResponseEntity.ok(ApiResponse.success("Xuất bản bài học thành công", lessonDto));
+    }
+
+    // Thêm vào ListeningLessonController.java
+
+    @GetMapping("/admin")
+    @Operation(summary = "Get all lessons for admin/teacher", description = "Get all lessons including drafts")
+    @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<ListeningLessonDto>>> getAllLessonsForAdmin() {
+        User currentUser = jwtHelper.getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Unauthorized"));
+        }
+
+        List<ListeningLesson> lessons = lessonService.getAllLessonsForAdmin(currentUser.getId());
+        List<ListeningLessonDto> lessonDtos = lessons.stream()
+                .map(ListeningLessonMapper::toDto)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách bài học thành công", lessonDtos));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update lesson", description = "Update lesson information")
+    @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ListeningLessonDto>> updateLesson(
+            @PathVariable Long id,
+            @Valid @RequestBody ListeningLessonUpdateDto updateDto) {
+
+        User currentUser = jwtHelper.getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Unauthorized"));
+        }
+
+        try {
+            ListeningLesson updatedLesson = lessonService.updateLesson(id, updateDto, currentUser.getId());
+            ListeningLessonDto lessonDto = ListeningLessonMapper.toDto(updatedLesson);
+
+            return ResponseEntity.ok(ApiResponse.success("Cập nhật bài học thành công", lessonDto));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete lesson", description = "Delete a lesson")
+    @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> deleteLesson(@PathVariable Long id) {
+        User currentUser = jwtHelper.getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Unauthorized"));
+        }
+
+        try {
+            boolean deleted = lessonService.deleteLesson(id, currentUser.getId());
+            if (deleted) {
+                return ResponseEntity.ok(ApiResponse.success("Xóa bài học thành công", null));
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Không thể xóa bài học"));
+            }
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/status")
+    @Operation(summary = "Update lesson status", description = "Change lesson status between DRAFT and PUBLISHED")
+    @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ListeningLessonDto>> updateLessonStatus(
+            @PathVariable Long id,
+            @RequestParam ListeningLesson.Status status) {
+
+        User currentUser = jwtHelper.getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Unauthorized"));
+        }
+
+        try {
+            ListeningLesson updatedLesson = lessonService.updateLessonStatus(id, status, currentUser.getId());
+            ListeningLessonDto lessonDto = ListeningLessonMapper.toDto(updatedLesson);
+
+            return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái thành công", lessonDto));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        }
     }
 }
