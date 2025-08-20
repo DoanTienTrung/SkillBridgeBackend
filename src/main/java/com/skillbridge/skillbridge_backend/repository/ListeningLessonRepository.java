@@ -91,4 +91,30 @@ public interface ListeningLessonRepository extends JpaRepository<ListeningLesson
 
     List<ListeningLesson> findAllByOrderByCreatedAtDesc();
     List<ListeningLesson> findByCreatedByOrderByCreatedAtDesc(User createdBy);
+
+    // ===== STUDENT-SPECIFIC METHODS =====
+    
+    /**
+     * Find lesson by ID and status (for student access)
+     */
+    java.util.Optional<ListeningLesson> findByIdAndStatus(Long id, ListeningLesson.Status status);
+    
+    /**
+     * Count lessons by status
+     */
+    long countByStatus(ListeningLesson.Status status);
+    
+    /**
+     * Find published lessons with filters for students
+     */
+    @Query("SELECT l FROM ListeningLesson l WHERE l.status = 'PUBLISHED' " +
+           "AND (:level IS NULL OR l.level = :level) " +
+           "AND (:categoryId IS NULL OR l.category.id = :categoryId) " +
+           "AND (:search IS NULL OR LOWER(l.title) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(l.description) LIKE LOWER(CONCAT('%', :search, '%')))")
+    List<ListeningLesson> findPublishedWithFilters(
+        @Param("level") String level,
+        @Param("categoryId") Long categoryId,
+        @Param("search") String search
+    );
 }

@@ -314,4 +314,20 @@ public class ListeningLessonController {
                     .body(ApiResponse.error(e.getMessage()));
         }
     }
+
+    // Thêm vào cuối file ListeningLessonController.java
+
+    @GetMapping("/{id}/validation")
+    @Operation(summary = "Validate lesson for publish", description = "Check if lesson meets publish requirements")
+    @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<String>>> validateLesson(@PathVariable Long id) {
+        List<String> validationErrors = lessonService.validateLessonForPublish(id);
+
+        if (validationErrors.isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.success("Bài học hợp lệ để xuất bản", validationErrors));
+        } else {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Bài học chưa đủ điều kiện xuất bản", String.valueOf(validationErrors)));
+        }
+    }
 }

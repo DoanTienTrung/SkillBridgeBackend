@@ -37,4 +37,6 @@ public interface UserVocabularyRepository extends JpaRepository<UserVocabulary, 
 
     @Query("SELECT COUNT(uv) FROM UserVocabulary uv WHERE uv.user.id = :userId")
     Long countTotalVocabByUser(@Param("userId") Long userId);
+
+    long countByUserId(Long userId);
 }

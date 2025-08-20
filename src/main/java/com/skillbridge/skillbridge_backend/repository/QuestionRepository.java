@@ -47,4 +47,12 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     @Query("SELECT COUNT(q) FROM Question q WHERE q.readingLesson.id = :lessonId")
     Long countByReadingLessonId(@Param("lessonId") Long lessonId);
+    
+    /**
+     * Find questions by lesson ID and lesson type (for student submissions)
+     */
+    @Query("SELECT q FROM Question q WHERE " +
+           "(:lessonType = 'LISTENING' AND q.listeningLesson.id = :lessonId AND q.lessonType = :lessonType) OR " +
+           "(:lessonType = 'READING' AND q.readingLesson.id = :lessonId AND q.lessonType = :lessonType)")
+    List<Question> findByLessonIdAndLessonType(@Param("lessonId") Long lessonId, @Param("lessonType") Question.LessonType lessonType);
 }

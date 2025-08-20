@@ -52,4 +52,30 @@ public interface ReadingLessonRepository extends JpaRepository<ReadingLesson, Lo
      * Bài đọc của teacher
      */
     List<ReadingLesson> findByCreatedById(Long teacherId);
+
+    // ===== STUDENT-SPECIFIC METHODS =====
+    
+    /**
+     * Find lesson by ID and status (for student access)
+     */
+    java.util.Optional<ReadingLesson> findByIdAndStatus(Long id, ListeningLesson.Status status);
+    
+    /**
+     * Count lessons by status
+     */
+    long countByStatus(ListeningLesson.Status status);
+    
+    /**
+     * Find published lessons with filters for students
+     */
+    @Query("SELECT r FROM ReadingLesson r WHERE r.status = 'PUBLISHED' " +
+           "AND (:level IS NULL OR r.level = :level) " +
+           "AND (:categoryId IS NULL OR r.category.id = :categoryId) " +
+           "AND (:search IS NULL OR LOWER(r.title) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(r.description) LIKE LOWER(CONCAT('%', :search, '%')))")
+    List<ReadingLesson> findPublishedWithFilters(
+        @Param("level") String level,
+        @Param("categoryId") Long categoryId,
+        @Param("search") String search
+    );
 }

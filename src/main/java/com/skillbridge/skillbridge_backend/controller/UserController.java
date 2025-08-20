@@ -2,9 +2,11 @@ package com.skillbridge.skillbridge_backend.controller;
 
 import com.skillbridge.skillbridge_backend.dto.UserDto;
 import com.skillbridge.skillbridge_backend.dto.UserRegistrationDto;
+import com.skillbridge.skillbridge_backend.dto.*;
 import com.skillbridge.skillbridge_backend.entity.User;
 import com.skillbridge.skillbridge_backend.Service.UserService;
 import com.skillbridge.skillbridge_backend.response.ApiResponse;
+import com.skillbridge.skillbridge_backend.security.JwtHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +29,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private JwtHelper jwtHelper;
 
     /**
      * Lấy thông tin profile của user hiện tại
@@ -132,6 +137,123 @@ public class UserController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Không thể cập nhật trạng thái user"));
+        }
+    }
+
+    // ===== STUDENT-SPECIFIC ENDPOINTS =====
+
+    /**
+     * Get student statistics for dashboard (Student only)
+     */
+    @GetMapping("/student/stats")
+    @Operation(summary = "Get student statistics", description = "Get student learning statistics for dashboard")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<StudentStatsDto>> getStudentStats() {
+        try {
+            User currentUser = jwtHelper.getCurrentUser();
+            StudentStatsDto stats = userService.getStudentStats(currentUser.getId());
+            return ResponseEntity.ok(ApiResponse.success("Lấy thống kê thành công", stats));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Lỗi khi lấy thống kê", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get recent lessons for student (Student only)
+     */
+    @GetMapping("/student/recent-lessons")
+    @Operation(summary = "Get recent lessons", description = "Get recently accessed lessons")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<RecentLessonDto>>> getRecentLessons(
+            @RequestParam(defaultValue = "5") int limit) {
+        try {
+            User currentUser = jwtHelper.getCurrentUser();
+            List<RecentLessonDto> lessons = userService.getRecentLessons(currentUser.getId(), limit);
+            return ResponseEntity.ok(ApiResponse.success("Lấy bài học gần đây thành công", lessons));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Lỗi khi lấy bài học gần đây", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get published lessons for students (Student only)
+     */
+    @GetMapping("/student/lessons")
+    @Operation(summary = "Get published lessons", description = "Get all published lessons with filtering")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<List<LessonDto>>> getPublishedLessons(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String search) {
+        try {
+            List<LessonDto> lessons = userService.getPublishedLessons(type, level, categoryId, search);
+            return ResponseEntity.ok(ApiResponse.success("Lấy danh sách bài học thành công", lessons));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Lỗi khi lấy danh sách bài học", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get lesson by ID for student view (Student only)
+     */
+    @GetMapping("/student/lessons/{type}/{id}")
+    @Operation(summary = "Get lesson details", description = "Get lesson details for student")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<LessonDto>> getLessonForStudent(
+            @PathVariable String type,
+            @PathVariable Long id) {
+        try {
+            LessonDto lesson = userService.getLessonForStudent(id, type);
+            return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết bài học thành công", lesson));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Lỗi khi lấy chi tiết bài học", e.getMessage()));
+        }
+    }
+
+    /**
+     * Submit student answers (Student only)
+     */
+    @PostMapping("/student/submit-answers")
+    @Operation(summary = "Submit lesson answers", description = "Submit student answers and get score")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<SubmissionResultDto>> submitAnswers(
+            @RequestBody SubmissionDto submissionDto) {
+        try {
+            User currentUser = jwtHelper.getCurrentUser();
+            SubmissionResultDto result = userService.submitAnswers(currentUser.getId(), submissionDto);
+            return ResponseEntity.ok(ApiResponse.success("Nộp bài thành công", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Lỗi khi nộp bài", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get student progress data for analytics (Student only)
+     */
+    @GetMapping("/student/progress")
+    @Operation(summary = "Get progress data", description = "Get student progress analytics")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<StudentProgressDto>> getProgressData(
+            @RequestParam(defaultValue = "week") String timeRange) {
+        try {
+            User currentUser = jwtHelper.getCurrentUser();
+            StudentProgressDto progress = userService.getProgressData(currentUser.getId(), timeRange);
+            return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu tiến độ thành công", progress));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Lỗi khi lấy dữ liệu tiến độ", e.getMessage()));
         }
     }
 }
