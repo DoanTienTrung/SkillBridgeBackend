@@ -101,6 +101,16 @@ public class UserService {
         user.setSchool(updateDto.getSchool());
         user.setMajor(updateDto.getMajor());
         user.setAcademicYear(updateDto.getAcademicYear());
+        
+        // Update role if provided (for admin operations)
+        if (updateDto.getRole() != null && !updateDto.getRole().isEmpty()) {
+            user.setRole(User.Role.valueOf(updateDto.getRole().toUpperCase()));
+        }
+        
+        // Update password if provided
+        if (updateDto.getPassword() != null && !updateDto.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(updateDto.getPassword()));
+        }
 
         return userRepository.save(user);
     }
@@ -498,5 +508,104 @@ public class UserService {
                 return levelData;
             })
             .collect(Collectors.toList());
+    }
+
+    // Additional methods for Admin User Management
+    public List<UserDto> getAllUsers(String role) {
+        List<User> users;
+        if (role != null && !role.isEmpty()) {
+            User.Role userRole = User.Role.valueOf(role.toUpperCase());
+            users = userRepository.findByRole(userRole);
+        } else {
+            users = userRepository.findAll();
+        }
+        return users.stream()
+                .map(this::convertToUserDto)
+                .collect(Collectors.toList());
+    }
+
+    public void toggleUserStatus(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+        user.setIsActive(!user.getIsActive());
+        userRepository.save(user);
+    }
+
+    public String resetPassword(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+
+        String newPassword = generateRandomPassword();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        return newPassword;
+    }
+
+    public void deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+        userRepository.delete(user);
+    }
+
+    public User createUser(UserRegistrationDto userData) {
+        // Check if email already exists
+        if (userRepository.existsByEmail(userData.getEmail())) {
+            throw new EmailAlreadyExistsException("Email đã được sử dụng: " + userData.getEmail());
+        }
+
+        User user = new User();
+        user.setEmail(userData.getEmail());
+        user.setPassword(passwordEncoder.encode(userData.getPassword()));
+        user.setFullName(userData.getFullName());
+        user.setSchool(userData.getSchool());
+        user.setMajor(userData.getMajor());
+        user.setAcademicYear(userData.getAcademicYear());
+        user.setIsActive(true);
+        
+        // Set role from DTO or default to STUDENT
+        if (userData.getRole() != null && !userData.getRole().isEmpty()) {
+            user.setRole(User.Role.valueOf(userData.getRole().toUpperCase()));
+        } else {
+            user.setRole(User.Role.STUDENT);
+        }
+
+        return userRepository.save(user);
+    }
+
+    private UserDto convertToUserDto(User user) {
+        UserDto dto = new UserDto();
+        dto.setId(user.getId());
+        dto.setEmail(user.getEmail());
+        dto.setFullName(user.getFullName());
+        dto.setRole(user.getRole().name());
+        dto.setAvatarUrl(user.getAvatarUrl());
+        dto.setSchool(user.getSchool());
+        dto.setMajor(user.getMajor());
+        dto.setAcademicYear(user.getAcademicYear());
+        dto.setIsActive(user.getIsActive());
+        dto.setCreatedAt(user.getCreatedAt());
+        return dto;
+    }
+
+    private String generateRandomPassword() {
+        return UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    /**
+     * Get user statistics for dashboard
+     */
+    public Map<String, Object> getUserStats() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        List<User> allUsers = userRepository.findAll();
+        
+        stats.put("totalUsers", allUsers.size());
+        stats.put("activeUsers", allUsers.stream().filter(User::getIsActive).count());
+        stats.put("studentsCount", allUsers.stream().filter(u -> u.getRole() == User.Role.STUDENT).count());
+        stats.put("teachersCount", allUsers.stream().filter(u -> u.getRole() == User.Role.TEACHER).count());
+        stats.put("adminsCount", allUsers.stream().filter(u -> u.getRole() == User.Role.ADMIN).count());
+        
+        return stats;
     }
 }

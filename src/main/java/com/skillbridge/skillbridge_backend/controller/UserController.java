@@ -5,6 +5,8 @@ import com.skillbridge.skillbridge_backend.dto.UserRegistrationDto;
 import com.skillbridge.skillbridge_backend.dto.*;
 import com.skillbridge.skillbridge_backend.entity.User;
 import com.skillbridge.skillbridge_backend.Service.UserService;
+import com.skillbridge.skillbridge_backend.exception.EmailAlreadyExistsException;
+import com.skillbridge.skillbridge_backend.exception.UserNotFoundException;
 import com.skillbridge.skillbridge_backend.response.ApiResponse;
 import com.skillbridge.skillbridge_backend.security.JwtHelper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +14,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -254,6 +258,137 @@ public class UserController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Lỗi khi lấy dữ liệu tiến độ", e.getMessage()));
+        }
+    }
+
+//    // Thêm vào UserController.java
+//    @GetMapping("/users")
+//    public ResponseEntity<ApiResponse<List<UserDto>>> getAllUsers(
+//            @RequestParam(required = false) String role) {
+//        try {
+//            List<UserDto> users = userService.getAllUsers(role);
+//            return ResponseEntity.ok(new ApiResponse<>(true, "Users retrieved successfully", users));
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body(new ApiResponse<>(false, "Error retrieving users: " + e.getMessage(), null));
+//        }
+//    }
+
+    @PutMapping("/users/{id}/toggle-status")
+    public ResponseEntity<ApiResponse<String>> toggleUserStatus(@PathVariable Long id) {
+        try {
+            userService.toggleUserStatus(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "User status updated successfully", null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Error updating user status: " + e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/users/{id}/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@PathVariable Long id) {
+        try {
+            String newPassword = userService.resetPassword(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Password reset successfully. New password: " + newPassword, null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Error resetting password: " + e.getMessage(), null));
+        }
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<ApiResponse<String>> deleteUser(@PathVariable Long id) {
+        try {
+            userService.deleteUser(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "User deleted successfully", null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Error deleting user: " + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * Create new user (Admin only)
+     */
+    @PostMapping("/users")
+    @Operation(summary = "Create new user", description = "Create a new user account (Admin only)")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserDto>> createUser(
+            @Parameter(description = "User registration data", required = true)
+            @Valid @RequestBody UserRegistrationDto userData) {
+        try {
+            User createdUser = userService.createUser(userData);
+            UserDto userDto = new UserDto(createdUser);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success("User created successfully", userDto));
+        } catch (EmailAlreadyExistsException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Email already exists", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Error creating user", e.getMessage()));
+        }
+    }
+
+    /**
+     * Update user by ID (Admin only)
+     */
+    @PutMapping("/users/{id}")
+    @Operation(summary = "Update user", description = "Update user information by ID (Admin only)")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserDto>> updateUserById(
+            @Parameter(description = "User ID", required = true)
+            @PathVariable Long id,
+            @Parameter(description = "Updated user data", required = true)
+            @Valid @RequestBody UserRegistrationDto updateDto) {
+        try {
+            User updatedUser = userService.updateUser(id, updateDto);
+            UserDto userDto = new UserDto(updatedUser);
+            return ResponseEntity.ok(ApiResponse.success("User updated successfully", userDto));
+        } catch (UserNotFoundException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("User not found", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Error updating user", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all users (Admin only)
+     */
+    @GetMapping
+    @Operation(summary = "Get all users", description = "Get all users with optional role filter (Admin only)")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<UserDto>>> getAllUsers(
+            @Parameter(description = "Role filter", required = false)
+            @RequestParam(required = false) String role) {
+        try {
+            List<UserDto> users = userService.getAllUsers(role);
+            return ResponseEntity.ok(ApiResponse.success("Users retrieved successfully", users));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Error retrieving users", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get user statistics (Admin only)
+     */
+    @GetMapping("/stats")
+    @Operation(summary = "Get user statistics", description = "Get user statistics for dashboard (Admin only)")
+    @SecurityRequirement(name = "JWT")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getUserStats() {
+        try {
+            Map<String, Object> stats = userService.getUserStats();
+            return ResponseEntity.ok(ApiResponse.success("User stats retrieved successfully", stats));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Error retrieving user stats", e.getMessage()));
         }
     }
 }

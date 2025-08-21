@@ -34,4 +34,7 @@ public class UserRegistrationDto {
     
     @Schema(description = "Academic year", example = "2023")
     private String academicYear;
+    
+    @Schema(description = "User role", example = "STUDENT", allowableValues = {"STUDENT", "TEACHER", "ADMIN"})
+    private String role;
 }
