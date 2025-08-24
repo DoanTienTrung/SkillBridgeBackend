@@ -102,7 +102,7 @@ public interface ListeningLessonRepository extends JpaRepository<ListeningLesson
     /**
      * Count lessons by status
      */
-    long countByStatus(ListeningLesson.Status status);
+    Integer countByStatus(ListeningLesson.Status status);
     
     /**
      * Find published lessons with filters for students
@@ -117,4 +117,24 @@ public interface ListeningLessonRepository extends JpaRepository<ListeningLesson
         @Param("categoryId") Long categoryId,
         @Param("search") String search
     );
+
+    // ===== ANALYTICS METHODS =====
+
+    /**
+     * Đếm tổng số listening lessons
+     */
+    @Query("SELECT COUNT(l) FROM ListeningLesson l")
+    Integer countAll();
+
+    /**
+     * Đếm lessons theo status
+     */
+   // @Query("SELECT COUNT(l) FROM ListeningLesson l WHERE l.status = :status")
+    //Integer countByStatus(@Param("status") ListeningLesson.Status status);
+
+    /**
+     * Đếm lessons theo level
+     */
+    @Query("SELECT COUNT(l) FROM ListeningLesson l WHERE l.level = :level")
+    Integer countByLevel(@Param("level") ListeningLesson.Level level);
 }

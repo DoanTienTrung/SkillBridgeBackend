@@ -63,7 +63,7 @@ public interface ReadingLessonRepository extends JpaRepository<ReadingLesson, Lo
     /**
      * Count lessons by status
      */
-    long countByStatus(ListeningLesson.Status status);
+
     
     /**
      * Find published lessons with filters for students
@@ -78,4 +78,24 @@ public interface ReadingLessonRepository extends JpaRepository<ReadingLesson, Lo
         @Param("categoryId") Long categoryId,
         @Param("search") String search
     );
+
+    // ===== ANALYTICS METHODS =====
+
+    /**
+     * Đếm tổng số reading lessons
+     */
+    @Query("SELECT COUNT(r) FROM ReadingLesson r")
+    Integer countAll();
+
+    /**
+     * Đếm lessons theo status
+     */
+    @Query("SELECT COUNT(r) FROM ReadingLesson r WHERE r.status = :status")
+    Integer countByStatus(@Param("status") ListeningLesson.Status status);
+
+    /**
+     * Đếm lessons theo level
+     */
+    @Query("SELECT COUNT(r) FROM ReadingLesson r WHERE r.level = :level")
+    Integer countByLevel(@Param("level") ListeningLesson.Level level);
 }

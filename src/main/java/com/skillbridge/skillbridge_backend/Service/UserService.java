@@ -593,6 +593,33 @@ public class UserService {
     }
 
     /**
+     * Change user password với validation
+     */
+    public void changePassword(Long userId, String currentPassword, String newPassword) {
+        User user = findById(userId);
+        
+        // Validate current password
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new RuntimeException("Mật khẩu hiện tại không đúng");
+        }
+        
+        // Encode and save new password
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        log.info("Password changed successfully for user: {}", userId);
+    }
+    
+    /**
+     * Update user avatar URL
+     */
+    public User updateAvatar(Long userId, String avatarUrl) {
+        User user = findById(userId);
+        user.setAvatarUrl(avatarUrl);
+        return userRepository.save(user);
+    }
+
+    /**
      * Get user statistics for dashboard
      */
     public Map<String, Object> getUserStats() {

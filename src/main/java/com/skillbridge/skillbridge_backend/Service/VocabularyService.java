@@ -5,26 +5,36 @@ import com.skillbridge.skillbridge_backend.dto.LessonVocabularyDto;
 import com.skillbridge.skillbridge_backend.entity.*;
 import com.skillbridge.skillbridge_backend.repository.*;
 import com.skillbridge.skillbridge_backend.exception.LessonNotFoundException;
+import com.skillbridge.skillbridge_backend.exception.UserNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@Slf4j
 public class VocabularyService {
 
     private final LessonVocabularyRepository lessonVocabularyRepository;
     private final VocabularyRepository vocabularyRepository;
     private final ListeningLessonRepository lessonRepository;
+    private final UserRepository userRepository;
+    private final UserVocabularyRepository userVocabularyRepository;
 
     public VocabularyService(LessonVocabularyRepository lessonVocabularyRepository,
                              VocabularyRepository vocabularyRepository,
-                             ListeningLessonRepository lessonRepository) {
+                             ListeningLessonRepository lessonRepository,
+                             UserRepository userRepository,
+                             UserVocabularyRepository userVocabularyRepository) {
         this.lessonVocabularyRepository = lessonVocabularyRepository;
         this.vocabularyRepository = vocabularyRepository;
         this.lessonRepository = lessonRepository;
+        this.userRepository = userRepository;
+        this.userVocabularyRepository = userVocabularyRepository;
     }
 
     public LessonVocabularyDto addVocabularyToLesson(Long lessonId, VocabularyCreateDto createDto) {
@@ -113,5 +123,79 @@ public class VocabularyService {
         }
 
         return dto;
+    }
+    
+    // ===== PERSONAL VOCABULARY MANAGEMENT =====
+    
+    /**
+     * Save word to user's personal vocabulary
+     */
+    public UserVocabulary saveToPersonalVocabulary(Long userId, String word, String meaning, String phonetic, String exampleSentence) {
+        log.info("Saving word '{}' to personal vocabulary for user: {}", word, userId);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng"));
+        
+        // Check if already exists
+        Optional<UserVocabulary> existing = userVocabularyRepository.findByUserIdAndWord(userId, word);
+        if (existing.isPresent()) {
+            throw new RuntimeException("Từ vựng đã có trong danh sách cá nhân");
+        }
+        
+        // Find or create vocabulary
+        Vocabulary vocabulary = vocabularyRepository.findByWord(word)
+            .orElseGet(() -> {
+                Vocabulary newVocab = new Vocabulary();
+                newVocab.setWord(word);
+                newVocab.setPhonetic(phonetic);
+                newVocab.setMeaning(meaning);
+                newVocab.setExampleSentence(exampleSentence);
+                return vocabularyRepository.save(newVocab);
+            });
+        
+        // Create user vocabulary
+        UserVocabulary userVocabulary = new UserVocabulary();
+        userVocabulary.setUser(user);
+        userVocabulary.setVocabulary(vocabulary);
+        userVocabulary.setStatus(UserVocabulary.Status.LEARNING);
+        
+        return userVocabularyRepository.save(userVocabulary);
+    }
+    
+    /**
+     * Get user's personal vocabulary list
+     */
+    public List<UserVocabulary> getUserVocabulary(Long userId) {
+        log.info("Getting personal vocabulary for user: {}", userId);
+        return userVocabularyRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+    
+    /**
+     * Update vocabulary status (learning, mastered, difficult)
+     */
+    public UserVocabulary updateVocabularyStatus(Long userId, Long vocabularyId, UserVocabulary.Status status) {
+        UserVocabulary userVocab = userVocabularyRepository.findByUserIdAndVocabularyId(userId, vocabularyId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy từ vựng trong danh sách cá nhân"));
+        
+        userVocab.setStatus(status);
+        return userVocabularyRepository.save(userVocab);
+    }
+    
+    /**
+     * Remove word from personal vocabulary
+     */
+    public void removeFromPersonalVocabulary(Long userId, Long vocabularyId) {
+        UserVocabulary userVocab = userVocabularyRepository.findByUserIdAndVocabularyId(userId, vocabularyId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy từ vựng trong danh sách cá nhân"));
+        
+        userVocabularyRepository.delete(userVocab);
+    }
+    
+    /**
+     * Look up word meaning (dictionary feature)
+     */
+    public Vocabulary lookupWord(String word) {
+        return vocabularyRepository.findByWord(word.toLowerCase())
+            .orElse(null); // Return null if not found, frontend will handle external dictionary API
     }
 }

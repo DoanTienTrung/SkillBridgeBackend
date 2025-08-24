@@ -22,8 +22,17 @@ public class FileStorageService {
     // Thư mục lưu trữ file audio
     private static final String UPLOAD_DIR = "uploads/audio/";
     
+    // Thư mục lưu trữ file ảnh
+    private static final String IMAGE_UPLOAD_DIR = "uploads/images/";
+    
     // Các định dạng audio được phép
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("mp3", "wav", "m4a", "aac", "ogg");
+    
+    // Các định dạng ảnh được phép
+    private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "gif");
+    
+    // Kích thước file ảnh tối đa (10MB)
+    private static final long MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
     
     // Kích thước file tối đa (50MB)
     private static final long MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -32,6 +41,11 @@ public class FileStorageService {
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
         "audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", 
         "audio/x-wav", "audio/mp4", "audio/aac", "audio/ogg"
+    );
+    
+    // MIME types cho ảnh được phép
+    private static final Set<String> ALLOWED_IMAGE_MIME_TYPES = Set.of(
+        "image/jpeg", "image/jpg", "image/png", "image/gif"
     );
 
     /**
@@ -240,6 +254,97 @@ public class FileStorageService {
 
         } catch (Exception e) {
             throw new FileStorageException("Không thể lấy thông tin file: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Lưu file ảnh và trả về đường dẫn
+     */
+    public String saveImageFile(MultipartFile file) {
+        try {
+            // Validate file trước khi lưu
+            if (!isValidImageFile(file)) {
+                throw new InvalidFileException("File không hợp lệ. Chỉ chấp nhận file ảnh JPG, PNG, GIF với kích thước tối đa 10MB.");
+            }
+
+            // Tạo thư mục nếu chưa tồn tại
+            createDirectoryIfNotExists(IMAGE_UPLOAD_DIR);
+
+            // Tạo tên file unique
+            String uniqueFileName = generateUniqueFileName(file.getOriginalFilename());
+            
+            // Đường dẫn đầy đủ để lưu file
+            Path targetLocation = Paths.get(IMAGE_UPLOAD_DIR + uniqueFileName);
+
+            // Copy file vào thư mục đích
+            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+
+            // Trả về đường dẫn tương đối
+            return IMAGE_UPLOAD_DIR + uniqueFileName;
+
+        } catch (IOException e) {
+            throw new FileStorageException("Không thể lưu file ảnh: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Kiểm tra file ảnh có hợp lệ hay không
+     */
+    public boolean isValidImageFile(MultipartFile file) {
+        // Kiểm tra file có null hoặc empty không
+        if (file == null || file.isEmpty()) {
+            return false;
+        }
+
+        // Kiểm tra kích thước file
+        if (file.getSize() > MAX_IMAGE_SIZE) {
+            return false;
+        }
+
+        // Kiểm tra extension
+        String originalFileName = file.getOriginalFilename();
+        if (!StringUtils.hasText(originalFileName)) {
+            return false;
+        }
+
+        String fileExtension = getFileExtension(originalFileName).toLowerCase();
+        if (!ALLOWED_IMAGE_EXTENSIONS.contains(fileExtension)) {
+            return false;
+        }
+
+        // Kiểm tra MIME type
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_MIME_TYPES.contains(contentType.toLowerCase())) {
+            return false;
+        }
+
+        return true;
+    }
+    
+    /**
+     * Xóa file ảnh theo tên file
+     */
+    public void deleteImageFile(String fileName) {
+        try {
+            if (fileName == null || fileName.trim().isEmpty()) {
+                throw new InvalidFileException("Tên file không được để trống");
+            }
+
+            Path filePath = Paths.get(fileName);
+            File file = filePath.toFile();
+
+            if (file.exists()) {
+                if (!file.delete()) {
+                    throw new FileStorageException("Không thể xóa file: " + fileName);
+                }
+            } else {
+                throw new FileStorageException("File không tồn tại: " + fileName);
+            }
+
+        } catch (FileStorageException | InvalidFileException e) {
+            throw e; // Re-throw custom exceptions
+        } catch (Exception e) {
+            throw new FileStorageException("Lỗi khi xóa file ảnh: " + e.getMessage(), e);
         }
     }
 

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -68,4 +69,68 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     @Query(value = "SELECT * FROM users WHERE email LIKE %:domain", nativeQuery = true)
     List<User> findByEmailDomain(@Param("domain") String domain);
+
+    // ===== ANALYTICS METHODS =====
+
+    /**
+     * Đếm tổng số users
+     */
+    @Query("SELECT COUNT(u) FROM User u")
+    Integer countAll();
+
+    /**
+     * Đếm users theo role
+     */
+    @Query("SELECT COUNT(u) FROM User u WHERE u.role = :role")
+    Integer countByRole(@Param("role") User.Role role);
+
+    /**
+     * Đếm users đăng ký sau một thời điểm
+     */
+    @Query("SELECT COUNT(u) FROM User u WHERE u.createdAt >= :since")
+    Integer countByCreatedAtAfter(@Param("since") LocalDateTime since);
+
+    /**
+     * Đếm users đăng ký trong khoảng thời gian và theo role
+     */
+    @Query("SELECT COUNT(u) FROM User u WHERE u.createdAt BETWEEN :start AND :end AND u.role = :role")
+    Integer countByCreatedAtBetweenAndRole(@Param("start") LocalDateTime start, 
+                                           @Param("end") LocalDateTime end, 
+                                           @Param("role") User.Role role);
+
+    /**
+     * Tìm users đăng ký trong khoảng thời gian
+     */
+    @Query("SELECT u FROM User u WHERE u.createdAt BETWEEN :start AND :end ORDER BY u.createdAt DESC")
+    List<User> findByCreatedAtBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    /**
+     * Đếm users active theo khoảng thời gian (có hoạt động trong user_lesson_progress)
+     */
+    @Query(value = "SELECT COUNT(DISTINCT u.id) FROM users u " +
+                   "INNER JOIN user_lesson_progress ulp ON u.id = ulp.user_id " +
+                   "WHERE ulp.created_at BETWEEN :start AND :end", nativeQuery = true)
+    Integer countActiveUsersByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // ===== ADDITIONAL ANALYTICS METHODS =====
+
+    /**
+     * Đếm users theo role và trạng thái active
+     */
+    Integer countByRoleAndIsActiveTrue(User.Role role);
+
+    /**
+     * Đếm tất cả users active
+     */
+    Integer countByIsActiveTrue();
+
+    /**
+     * Đếm users đăng ký trong khoảng thời gian
+     */
+    Integer countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
+    /**
+     * Tìm users theo role và active
+     */
+    List<User> findByRoleAndIsActiveTrue(User.Role role);
 }

@@ -376,6 +376,61 @@ public class UserController {
     }
 
     /**
+     * Change password
+     */
+    @PutMapping("/change-password")
+    @Operation(summary = "Change password", description = "Change user password")
+    @SecurityRequirement(name = "JWT")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            Authentication authentication,
+            @Parameter(description = "Password change data", required = true)
+            @Valid @RequestBody ChangePasswordDto changePasswordDto) {
+        try {
+            // Validate confirm password
+            if (!changePasswordDto.getNewPassword().equals(changePasswordDto.getConfirmPassword())) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Xác nhận mật khẩu không khớp"));
+            }
+            
+            String email = authentication.getName();
+            User currentUser = userService.findByEmail(email);
+            
+            userService.changePassword(currentUser.getId(), 
+                changePasswordDto.getCurrentPassword(), 
+                changePasswordDto.getNewPassword());
+            
+            return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Đổi mật khẩu thất bại", e.getMessage()));
+        }
+    }
+    
+    /**
+     * Update avatar URL
+     */
+    @PutMapping("/avatar")
+    @Operation(summary = "Update avatar", description = "Update user avatar URL")
+    @SecurityRequirement(name = "JWT")
+    public ResponseEntity<ApiResponse<UserDto>> updateAvatar(
+            Authentication authentication,
+            @Parameter(description = "Avatar URL", required = true)
+            @RequestParam String avatarUrl) {
+        try {
+            String email = authentication.getName();
+            User currentUser = userService.findByEmail(email);
+            
+            User updatedUser = userService.updateAvatar(currentUser.getId(), avatarUrl);
+            UserDto userDto = new UserDto(updatedUser);
+            
+            return ResponseEntity.ok(ApiResponse.success("Cập nhật ảnh đại diện thành công", userDto));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Cập nhật ảnh đại diện thất bại", e.getMessage()));
+        }
+    }
+
+    /**
      * Get user statistics (Admin only)
      */
     @GetMapping("/stats")

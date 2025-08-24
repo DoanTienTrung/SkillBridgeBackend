@@ -30,6 +30,10 @@ public class UserVocabulary {
 
     @Column(name = "is_learned")
     private Boolean isLearned = false;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private Status status = Status.LEARNING;
 
     @Column(name = "review_count")
     private Integer reviewCount = 0;
@@ -40,4 +44,20 @@ public class UserVocabulary {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+    
+    public enum Status {
+        LEARNING("Đang học"),
+        MASTERED("Đã thuộc"),
+        DIFFICULT("Khó nhớ");
+        
+        private final String displayName;
+        
+        Status(String displayName) {
+            this.displayName = displayName;
+        }
+        
+        public String getDisplayName() {
+            return displayName;
+        }
+    }
 }

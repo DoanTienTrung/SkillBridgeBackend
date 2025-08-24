@@ -55,4 +55,12 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
            "(:lessonType = 'LISTENING' AND q.listeningLesson.id = :lessonId AND q.lessonType = :lessonType) OR " +
            "(:lessonType = 'READING' AND q.readingLesson.id = :lessonId AND q.lessonType = :lessonType)")
     List<Question> findByLessonIdAndLessonType(@Param("lessonId") Long lessonId, @Param("lessonType") Question.LessonType lessonType);
+
+    // ===== ANALYTICS METHODS =====
+
+    /**
+     * Đếm tổng số questions
+     */
+    @Query("SELECT COUNT(q) FROM Question q")
+    Integer countAll();
 }
