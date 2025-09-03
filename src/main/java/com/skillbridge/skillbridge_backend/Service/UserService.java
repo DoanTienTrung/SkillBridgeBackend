@@ -223,34 +223,68 @@ public class UserService {
      * Get published lessons with filtering
      */
     public List<LessonDto> getPublishedLessons(String type, String level, Long categoryId, String search) {
-        log.info("Getting published lessons with filters - type: {}, level: {}, categoryId: {}, search: {}", 
+        log.info("Getting published lessons with filters - type: {}, level: {}, categoryId: {}, search: {}",
                 type, level, categoryId, search);
-        
+
         try {
             List<LessonDto> allLessons = new ArrayList<>();
-            
-            // Get listening lessons
-            if (type == null || "listening".equals(type) || "all".equals(type)) {
-                List<ListeningLesson> listeningLessons = listeningLessonRepository.findPublishedWithFilters(level, categoryId, search);
-                allLessons.addAll(listeningLessons.stream()
-                    .map(lesson -> convertToLessonDto(lesson, "listening"))
-                    .collect(Collectors.toList()));
+
+            // Get Reading Lessons
+            if (type == null || "all".equals(type) || "READING".equalsIgnoreCase(type) || "reading".equalsIgnoreCase(type)) {
+                List<ReadingLesson> readingLessons = readingLessonRepository.findByStatus(ListeningLesson.Status.PUBLISHED);
+
+                for (ReadingLesson lesson : readingLessons) {
+                    // Apply filters
+                    if (level != null && !level.equals("all") && !lesson.getLevel().name().equalsIgnoreCase(level)) {
+                        continue;
+                    }
+                    if (categoryId != null && (lesson.getCategory() == null || !lesson.getCategory().getId().equals(categoryId))) {
+                        continue;
+                    }
+                    if (search != null && !search.trim().isEmpty()) {
+                        String searchLower = search.toLowerCase();
+                        if (!lesson.getTitle().toLowerCase().contains(searchLower) &&
+                                !lesson.getDescription().toLowerCase().contains(searchLower)) {
+                            continue;
+                        }
+                    }
+
+                    LessonDto dto = convertToLessonDto(lesson, "reading");
+                    allLessons.add(dto);
+                }
             }
-            
-            // Get reading lessons  
-            if (type == null || "reading".equals(type) || "all".equals(type)) {
-                List<ReadingLesson> readingLessons = readingLessonRepository.findPublishedWithFilters(level, categoryId, search);
-                allLessons.addAll(readingLessons.stream()
-                    .map(lesson -> convertToLessonDto(lesson, "reading"))
-                    .collect(Collectors.toList()));
+
+            // Get Listening Lessons
+            if (type == null || "all".equals(type) || "LISTENING".equalsIgnoreCase(type) || "listening".equalsIgnoreCase(type)) {
+                List<ListeningLesson> listeningLessons = listeningLessonRepository.findByStatus(ListeningLesson.Status.PUBLISHED);
+
+                for (ListeningLesson lesson : listeningLessons) {
+                    // Apply filters
+                    if (level != null && !level.equals("all") && !lesson.getLevel().name().equalsIgnoreCase(level)) {
+                        continue;
+                    }
+                    if (categoryId != null && (lesson.getCategory() == null || !lesson.getCategory().getId().equals(categoryId))) {
+                        continue;
+                    }
+                    if (search != null && !search.trim().isEmpty()) {
+                        String searchLower = search.toLowerCase();
+                        if (!lesson.getTitle().toLowerCase().contains(searchLower) &&
+                                !lesson.getDescription().toLowerCase().contains(searchLower)) {
+                            continue;
+                        }
+                    }
+
+                    LessonDto dto = convertToLessonDto(lesson, "listening");
+                    allLessons.add(dto);
+                }
             }
-            
+
             // Sort by creation date (newest first)
             allLessons.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
-            
-            log.info("Found {} published lessons", allLessons.size());
+
+            log.info("Retrieved {} published lessons", allLessons.size());
             return allLessons;
-            
+
         } catch (Exception e) {
             log.error("Error getting published lessons: {}", e.getMessage());
             throw new RuntimeException("Failed to get published lessons", e);
@@ -635,4 +669,6 @@ public class UserService {
         
         return stats;
     }
+
+
 }
