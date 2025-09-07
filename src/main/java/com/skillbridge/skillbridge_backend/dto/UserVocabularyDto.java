@@ -20,6 +20,16 @@ public class UserVocabularyDto {
     private Integer reviewCount;
     private LocalDateTime lastReviewed;
     private LocalDateTime createdAt;
+    
+    // New fields
+    private String category;
+    private String difficulty;
+    private String difficultyDisplayName;
+    private String partOfSpeech;
+    private String partOfSpeechDisplayName;
+    private String synonyms;
+    private String antonyms;
+    private String notes;
 
     public UserVocabularyDto(UserVocabulary userVocabulary) {
         this.id = userVocabulary.getId();
@@ -33,5 +43,15 @@ public class UserVocabularyDto {
         this.reviewCount = userVocabulary.getReviewCount();
         this.lastReviewed = userVocabulary.getLastReviewed();
         this.createdAt = userVocabulary.getCreatedAt();
+        
+        // New fields
+        this.category = userVocabulary.getVocabulary().getCategory();
+        this.difficulty = userVocabulary.getVocabulary().getDifficulty() != null ? userVocabulary.getVocabulary().getDifficulty().name() : null;
+        this.difficultyDisplayName = userVocabulary.getVocabulary().getDifficulty() != null ? userVocabulary.getVocabulary().getDifficulty().getDisplayName() : null;
+        this.partOfSpeech = userVocabulary.getVocabulary().getPartOfSpeech() != null ? userVocabulary.getVocabulary().getPartOfSpeech().name() : null;
+        this.partOfSpeechDisplayName = userVocabulary.getVocabulary().getPartOfSpeech() != null ? userVocabulary.getVocabulary().getPartOfSpeech().getDisplayName() : null;
+        this.synonyms = userVocabulary.getVocabulary().getSynonyms();
+        this.antonyms = userVocabulary.getVocabulary().getAntonyms();
+        this.notes = userVocabulary.getVocabulary().getNotes();
     }
 }

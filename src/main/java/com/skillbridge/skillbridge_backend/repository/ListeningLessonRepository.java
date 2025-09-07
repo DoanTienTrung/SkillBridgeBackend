@@ -13,6 +13,7 @@ import java.util.List;
 @Repository
 public interface ListeningLessonRepository extends JpaRepository<ListeningLesson, Long> {
 
+
     // ===== QUERY BY STATUS =====
 
     /**

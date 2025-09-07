@@ -16,6 +16,10 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+
+        registry.addResourceHandler("/api/uploads/**")
+                .addResourceLocations("file:uploads/")
+                .setCachePeriod(3600);
         // Serve uploaded audio files
         // URL pattern: /api/uploads/audio/**
         // Physical location: uploads/audio/ (thư mục trong project root)

@@ -16,6 +16,7 @@ import java.util.Optional;
 @Repository
 public interface UserLessonProgressRepository extends JpaRepository<UserLessonProgress, Long> {
 
+
     /**
      * Tìm tiến độ của user
      */

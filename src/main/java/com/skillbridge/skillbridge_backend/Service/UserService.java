@@ -29,23 +29,23 @@ public class UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
-    
+
     // Student-related repositories
     @Autowired
     private ListeningLessonRepository listeningLessonRepository;
-    
+
     @Autowired
     private ReadingLessonRepository readingLessonRepository;
-    
+
     @Autowired
     private QuestionRepository questionRepository;
-    
+
     @Autowired
     private UserAnswerRepository userAnswerRepository;
-    
+
     @Autowired
     private UserLessonProgressRepository progressRepository;
-    
+
     @Autowired
     private UserVocabularyRepository userVocabularyRepository;
 
@@ -101,12 +101,12 @@ public class UserService {
         user.setSchool(updateDto.getSchool());
         user.setMajor(updateDto.getMajor());
         user.setAcademicYear(updateDto.getAcademicYear());
-        
+
         // Update role if provided (for admin operations)
         if (updateDto.getRole() != null && !updateDto.getRole().isEmpty()) {
             user.setRole(User.Role.valueOf(updateDto.getRole().toUpperCase()));
         }
-        
+
         // Update password if provided
         if (updateDto.getPassword() != null && !updateDto.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(updateDto.getPassword()));
@@ -156,7 +156,7 @@ public class UserService {
      */
     public StudentStatsDto getStudentStats(Long userId) {
         log.info("Getting student stats for user: {}", userId);
-        
+
         StudentStatsDto stats = new StudentStatsDto();
 
         try {
@@ -187,7 +187,7 @@ public class UserService {
 
             log.info("Student stats retrieved successfully: {}", stats);
             return stats;
-            
+
         } catch (Exception e) {
             log.error("Error getting student stats for user {}: {}", userId, e.getMessage());
             throw new RuntimeException("Failed to get student statistics", e);
@@ -199,20 +199,20 @@ public class UserService {
      */
     public List<RecentLessonDto> getRecentLessons(Long userId, int limit) {
         log.info("Getting recent lessons for user: {}, limit: {}", userId, limit);
-        
+
         try {
             List<UserLessonProgress> recentProgress = progressRepository.findByUserId(userId);
-            
+
             return recentProgress.stream()
-                .sorted((a, b) -> {
-                    LocalDateTime timeA = a.getCompletedAt() != null ? a.getCompletedAt() : a.getCreatedAt();
-                    LocalDateTime timeB = b.getCompletedAt() != null ? b.getCompletedAt() : b.getCreatedAt();
-                    return timeB.compareTo(timeA); // Latest first
-                })
-                .limit(limit)
-                .map(this::convertToRecentLessonDto)
-                .collect(Collectors.toList());
-                
+                    .sorted((a, b) -> {
+                        LocalDateTime timeA = a.getCompletedAt() != null ? a.getCompletedAt() : a.getCreatedAt();
+                        LocalDateTime timeB = b.getCompletedAt() != null ? b.getCompletedAt() : b.getCreatedAt();
+                        return timeB.compareTo(timeA); // Latest first
+                    })
+                    .limit(limit)
+                    .map(this::convertToRecentLessonDto)
+                    .collect(Collectors.toList());
+
         } catch (Exception e) {
             log.error("Error getting recent lessons for user {}: {}", userId, e.getMessage());
             throw new RuntimeException("Failed to get recent lessons", e);
@@ -296,15 +296,15 @@ public class UserService {
      */
     public LessonDto getLessonForStudent(Long id, String type) {
         log.info("Getting lesson for student - id: {}, type: {}", id, type);
-        
+
         try {
             if ("listening".equals(type)) {
                 ListeningLesson lesson = listeningLessonRepository.findByIdAndStatus(id, ListeningLesson.Status.PUBLISHED)
-                    .orElseThrow(() -> new RuntimeException("Lesson not found or not published"));
+                        .orElseThrow(() -> new RuntimeException("Lesson not found or not published"));
                 return convertToLessonDto(lesson, "listening");
             } else {
                 ReadingLesson lesson = readingLessonRepository.findByIdAndStatus(id, ListeningLesson.Status.PUBLISHED)
-                    .orElseThrow(() -> new RuntimeException("Lesson not found or not published"));
+                        .orElseThrow(() -> new RuntimeException("Lesson not found or not published"));
                 return convertToLessonDto(lesson, "reading");
             }
         } catch (Exception e) {
@@ -318,16 +318,16 @@ public class UserService {
      */
     public SubmissionResultDto submitAnswers(Long userId, SubmissionDto submission) {
         log.info("Submitting answers for user: {}, lesson: {}", userId, submission.getLessonId());
-        
+
         try {
             List<Question> questions = questionRepository.findByLessonIdAndLessonType(
-                submission.getLessonId(), 
-                Question.LessonType.valueOf(submission.getLessonType().toUpperCase())
+                    submission.getLessonId(),
+                    Question.LessonType.valueOf(submission.getLessonType().toUpperCase())
             );
 
             int correctAnswers = 0;
             int totalQuestions = questions.size();
-            
+
             User user = findById(userId);
 
             // Save user answers and count correct ones
@@ -339,9 +339,9 @@ public class UserService {
                     answer.setQuestion(question);
                     answer.setSelectedAnswer(userAnswer);
                     answer.setIsCorrect(userAnswer.equals(question.getCorrectAnswer()));
-                    
+
                     userAnswerRepository.save(answer);
-                    
+
                     if (answer.getIsCorrect()) {
                         correctAnswers++;
                     }
@@ -349,17 +349,17 @@ public class UserService {
             }
 
             // Calculate score
-            BigDecimal score = totalQuestions > 0 
-                ? BigDecimal.valueOf((double) correctAnswers / totalQuestions * 10)
-                : BigDecimal.ZERO;
+            BigDecimal score = totalQuestions > 0
+                    ? BigDecimal.valueOf((double) correctAnswers / totalQuestions * 10)
+                    : BigDecimal.ZERO;
 
             // Save or update progress
             Optional<UserLessonProgress> existingProgress = progressRepository
-                .findByUserIdAndLessonIdAndLessonType(
-                    userId, 
-                    submission.getLessonId(), 
-                    Question.LessonType.valueOf(submission.getLessonType().toUpperCase())
-                );
+                    .findByUserIdAndLessonIdAndLessonType(
+                            userId,
+                            submission.getLessonId(),
+                            Question.LessonType.valueOf(submission.getLessonType().toUpperCase())
+                    );
 
             UserLessonProgress progress;
             if (existingProgress.isPresent()) {
@@ -387,7 +387,7 @@ public class UserService {
 
             log.info("Submission completed - score: {}, correct: {}/{}", score, correctAnswers, totalQuestions);
             return result;
-            
+
         } catch (Exception e) {
             log.error("Error submitting answers for user {}: {}", userId, e.getMessage());
             throw new RuntimeException("Failed to submit answers", e);
@@ -399,7 +399,7 @@ public class UserService {
      */
     public StudentProgressDto getProgressData(Long userId, String timeRange) {
         log.info("Getting progress data for user: {}, timeRange: {}", userId, timeRange);
-        
+
         try {
             StudentProgressDto progressData = new StudentProgressDto();
 
@@ -409,12 +409,12 @@ public class UserService {
 
             // Get charts data
             Map<String, Object> charts = new HashMap<>();
-            
+
             // Simple weekly progress for now
             List<UserLessonProgress> progressList = progressRepository.findByUserId(userId);
             charts.put("weeklyProgress", generateWeeklyProgressData(progressList));
             charts.put("levelProgress", generateLevelProgressData(progressList));
-            
+
             progressData.setCharts(charts);
 
             // Get recent activities
@@ -422,7 +422,7 @@ public class UserService {
             progressData.setRecentActivities(recentActivities);
 
             return progressData;
-            
+
         } catch (Exception e) {
             log.error("Error getting progress data for user {}: {}", userId, e.getMessage());
             throw new RuntimeException("Failed to get progress data", e);
@@ -432,7 +432,7 @@ public class UserService {
     // Helper methods
     private LessonDto convertToLessonDto(Object lesson, String type) {
         LessonDto dto = new LessonDto();
-        
+
         if ("listening".equals(type) && lesson instanceof ListeningLesson) {
             ListeningLesson listeningLesson = (ListeningLesson) lesson;
             dto.setId(listeningLesson.getId());
@@ -444,7 +444,7 @@ public class UserService {
             dto.setAudioUrl(listeningLesson.getAudioUrl());
             dto.setTranscript(listeningLesson.getTranscript());
             dto.setCreatedAt(listeningLesson.getCreatedAt());
-            
+
             if (listeningLesson.getCategory() != null) {
                 CategoryDto categoryDto = new CategoryDto();
                 categoryDto.setId(listeningLesson.getCategory().getId());
@@ -461,7 +461,7 @@ public class UserService {
             dto.setContent(readingLesson.getContent());
             dto.setWordCount(readingLesson.getWordCount());
             dto.setCreatedAt(readingLesson.getCreatedAt());
-            
+
             if (readingLesson.getCategory() != null) {
                 CategoryDto categoryDto = new CategoryDto();
                 categoryDto.setId(readingLesson.getCategory().getId());
@@ -469,7 +469,7 @@ public class UserService {
                 dto.setCategory(categoryDto);
             }
         }
-        
+
         return dto;
     }
 
@@ -486,10 +486,10 @@ public class UserService {
         try {
             if (progress.getLessonType() == Question.LessonType.LISTENING) {
                 listeningLessonRepository.findById(progress.getLessonId())
-                    .ifPresent(lesson -> dto.setLessonTitle(lesson.getTitle()));
+                        .ifPresent(lesson -> dto.setLessonTitle(lesson.getTitle()));
             } else {
                 readingLessonRepository.findById(progress.getLessonId())
-                    .ifPresent(lesson -> dto.setLessonTitle(lesson.getTitle()));
+                        .ifPresent(lesson -> dto.setLessonTitle(lesson.getTitle()));
             }
         } catch (Exception e) {
             dto.setLessonTitle("Unknown Lesson");
@@ -501,47 +501,47 @@ public class UserService {
     private List<Map<String, Object>> generateWeeklyProgressData(List<UserLessonProgress> progressList) {
         // Simple implementation - group by day and calculate average score
         Map<String, List<UserLessonProgress>> groupedByDay = progressList.stream()
-            .filter(p -> p.getCompletedAt() != null && p.getScore() != null)
-            .collect(Collectors.groupingBy(p -> p.getCompletedAt().toLocalDate().toString()));
+                .filter(p -> p.getCompletedAt() != null && p.getScore() != null)
+                .collect(Collectors.groupingBy(p -> p.getCompletedAt().toLocalDate().toString()));
 
         return groupedByDay.entrySet().stream()
-            .map(entry -> {
-                Map<String, Object> dayData = new HashMap<>();
-                dayData.put("date", entry.getKey());
-                
-                double avgScore = entry.getValue().stream()
-                    .mapToDouble(p -> p.getScore().doubleValue())
-                    .average()
-                    .orElse(0.0);
-                    
-                int totalTime = entry.getValue().stream()
-                    .mapToInt(p -> p.getTimeSpentSeconds() != null ? p.getTimeSpentSeconds() : 0)
-                    .sum();
-                    
-                dayData.put("score", avgScore);
-                dayData.put("timeSpent", totalTime);
-                return dayData;
-            })
-            .sorted((a, b) -> ((String) a.get("date")).compareTo((String) b.get("date")))
-            .collect(Collectors.toList());
+                .map(entry -> {
+                    Map<String, Object> dayData = new HashMap<>();
+                    dayData.put("date", entry.getKey());
+
+                    double avgScore = entry.getValue().stream()
+                            .mapToDouble(p -> p.getScore().doubleValue())
+                            .average()
+                            .orElse(0.0);
+
+                    int totalTime = entry.getValue().stream()
+                            .mapToInt(p -> p.getTimeSpentSeconds() != null ? p.getTimeSpentSeconds() : 0)
+                            .sum();
+
+                    dayData.put("score", avgScore);
+                    dayData.put("timeSpent", totalTime);
+                    return dayData;
+                })
+                .sorted((a, b) -> ((String) a.get("date")).compareTo((String) b.get("date")))
+                .collect(Collectors.toList());
     }
 
     private List<Map<String, Object>> generateLevelProgressData(List<UserLessonProgress> progressList) {
         // Count progress by lesson type
         Map<String, Long> counts = progressList.stream()
-            .collect(Collectors.groupingBy(
-                p -> p.getLessonType().name(),
-                Collectors.counting()
-            ));
+                .collect(Collectors.groupingBy(
+                        p -> p.getLessonType().name(),
+                        Collectors.counting()
+                ));
 
         return counts.entrySet().stream()
-            .map(entry -> {
-                Map<String, Object> levelData = new HashMap<>();
-                levelData.put("level", entry.getKey());
-                levelData.put("count", entry.getValue());
-                return levelData;
-            })
-            .collect(Collectors.toList());
+                .map(entry -> {
+                    Map<String, Object> levelData = new HashMap<>();
+                    levelData.put("level", entry.getKey());
+                    levelData.put("count", entry.getValue());
+                    return levelData;
+                })
+                .collect(Collectors.toList());
     }
 
     // Additional methods for Admin User Management
@@ -596,7 +596,7 @@ public class UserService {
         user.setMajor(userData.getMajor());
         user.setAcademicYear(userData.getAcademicYear());
         user.setIsActive(true);
-        
+
         // Set role from DTO or default to STUDENT
         if (userData.getRole() != null && !userData.getRole().isEmpty()) {
             user.setRole(User.Role.valueOf(userData.getRole().toUpperCase()));
@@ -631,19 +631,19 @@ public class UserService {
      */
     public void changePassword(Long userId, String currentPassword, String newPassword) {
         User user = findById(userId);
-        
+
         // Validate current password
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new RuntimeException("Mật khẩu hiện tại không đúng");
         }
-        
+
         // Encode and save new password
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-        
+
         log.info("Password changed successfully for user: {}", userId);
     }
-    
+
     /**
      * Update user avatar URL
      */
@@ -658,15 +658,15 @@ public class UserService {
      */
     public Map<String, Object> getUserStats() {
         Map<String, Object> stats = new HashMap<>();
-        
+
         List<User> allUsers = userRepository.findAll();
-        
+
         stats.put("totalUsers", allUsers.size());
         stats.put("activeUsers", allUsers.stream().filter(User::getIsActive).count());
         stats.put("studentsCount", allUsers.stream().filter(u -> u.getRole() == User.Role.STUDENT).count());
         stats.put("teachersCount", allUsers.stream().filter(u -> u.getRole() == User.Role.TEACHER).count());
         stats.put("adminsCount", allUsers.stream().filter(u -> u.getRole() == User.Role.ADMIN).count());
-        
+
         return stats;
     }
 

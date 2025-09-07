@@ -2,6 +2,7 @@ package com.skillbridge.skillbridge_backend.controller;
 
 import com.skillbridge.skillbridge_backend.Service.VocabularyService;
 import com.skillbridge.skillbridge_backend.dto.UserVocabularyDto;
+import com.skillbridge.skillbridge_backend.dto.PersonalVocabularyCreateDto;
 import com.skillbridge.skillbridge_backend.entity.UserVocabulary;
 import com.skillbridge.skillbridge_backend.entity.Vocabulary;
 import com.skillbridge.skillbridge_backend.entity.User;
@@ -46,7 +47,7 @@ public class PersonalVocabularyController {
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<ApiResponse<UserVocabularyDto>> saveWord(
             @Parameter(description = "Word data", required = true)
-            @RequestBody Map<String, String> request) {
+            @RequestBody PersonalVocabularyCreateDto vocabularyDto) {
         try {
             User currentUser = jwtHelper.getCurrentUser();
             if (currentUser == null) {
@@ -54,18 +55,13 @@ public class PersonalVocabularyController {
                     .body(ApiResponse.error("Unauthorized"));
             }
 
-            String word = request.get("word");
-            String meaning = request.get("meaning");
-            String phonetic = request.get("phonetic");
-            String exampleSentence = request.get("exampleSentence");
-
-            if (word == null || word.trim().isEmpty()) {
+            if (vocabularyDto.getWord() == null || vocabularyDto.getWord().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Từ vựng không được để trống"));
             }
 
             UserVocabulary savedVocab = vocabularyService.saveToPersonalVocabulary(
-                currentUser.getId(), word.trim(), meaning, phonetic, exampleSentence);
+                currentUser.getId(), vocabularyDto);
             
             UserVocabularyDto dto = new UserVocabularyDto(savedVocab);
             return ResponseEntity.ok(ApiResponse.success("Lưu từ vựng thành công", dto));

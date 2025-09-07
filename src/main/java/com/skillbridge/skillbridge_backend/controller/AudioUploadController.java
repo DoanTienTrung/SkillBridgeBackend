@@ -17,6 +17,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+
 /**
  * Controller xử lý upload và quản lý file audio
  */
@@ -88,7 +90,7 @@ public class AudioUploadController {
             String savedFilePath = fileStorageService.saveAudioFile(file);
 
             // Tạo URL để truy cập file
-            String audioUrl = "/api" + "/" + savedFilePath;
+            String audioUrl = "http://localhost:8080/api/uploads/audio/" + new File(savedFilePath).getName();
 
             // Lấy thông tin file
             String fileExtension = getFileExtension(file.getOriginalFilename());

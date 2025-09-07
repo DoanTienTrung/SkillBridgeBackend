@@ -12,6 +12,8 @@ import java.util.List;
 @Repository
 public interface ReadingLessonRepository extends JpaRepository<ReadingLesson, Long> {
 
+
+
     /**
      * Tìm bài đọc theo trạng thái
      */

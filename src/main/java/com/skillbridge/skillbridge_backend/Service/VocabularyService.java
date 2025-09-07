@@ -2,6 +2,7 @@ package com.skillbridge.skillbridge_backend.Service;
 
 import com.skillbridge.skillbridge_backend.dto.VocabularyCreateDto;
 import com.skillbridge.skillbridge_backend.dto.LessonVocabularyDto;
+import com.skillbridge.skillbridge_backend.dto.PersonalVocabularyCreateDto;
 import com.skillbridge.skillbridge_backend.entity.*;
 import com.skillbridge.skillbridge_backend.repository.*;
 import com.skillbridge.skillbridge_backend.exception.LessonNotFoundException;
@@ -130,26 +131,32 @@ public class VocabularyService {
     /**
      * Save word to user's personal vocabulary
      */
-    public UserVocabulary saveToPersonalVocabulary(Long userId, String word, String meaning, String phonetic, String exampleSentence) {
-        log.info("Saving word '{}' to personal vocabulary for user: {}", word, userId);
+    public UserVocabulary saveToPersonalVocabulary(Long userId, PersonalVocabularyCreateDto vocabularyDto) {
+        log.info("Saving word '{}' to personal vocabulary for user: {}", vocabularyDto.getWord(), userId);
         
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng"));
         
         // Check if already exists
-        Optional<UserVocabulary> existing = userVocabularyRepository.findByUserIdAndWord(userId, word);
+        Optional<UserVocabulary> existing = userVocabularyRepository.findByUserIdAndWord(userId, vocabularyDto.getWord());
         if (existing.isPresent()) {
             throw new RuntimeException("Từ vựng đã có trong danh sách cá nhân");
         }
         
         // Find or create vocabulary
-        Vocabulary vocabulary = vocabularyRepository.findByWord(word)
+        Vocabulary vocabulary = vocabularyRepository.findByWord(vocabularyDto.getWord())
             .orElseGet(() -> {
                 Vocabulary newVocab = new Vocabulary();
-                newVocab.setWord(word);
-                newVocab.setPhonetic(phonetic);
-                newVocab.setMeaning(meaning);
-                newVocab.setExampleSentence(exampleSentence);
+                newVocab.setWord(vocabularyDto.getWord());
+                newVocab.setPhonetic(vocabularyDto.getPhonetic());
+                newVocab.setMeaning(vocabularyDto.getMeaning());
+                newVocab.setExampleSentence(vocabularyDto.getExampleSentence());
+                newVocab.setCategory(vocabularyDto.getCategory());
+                newVocab.setDifficulty(vocabularyDto.getDifficulty());
+                newVocab.setPartOfSpeech(vocabularyDto.getPartOfSpeech());
+                newVocab.setSynonyms(vocabularyDto.getSynonyms());
+                newVocab.setAntonyms(vocabularyDto.getAntonyms());
+                newVocab.setNotes(vocabularyDto.getNotes());
                 return vocabularyRepository.save(newVocab);
             });
         
