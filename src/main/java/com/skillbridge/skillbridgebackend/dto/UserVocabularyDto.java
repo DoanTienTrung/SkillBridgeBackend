@@ -15,6 +15,7 @@ public class UserVocabularyDto {
     private String meaning;
     private String exampleSentence;
     private String status;
+    private Long vocabularyId;
     private String statusDisplayName;
     private Boolean isLearned;
     private Integer reviewCount;
@@ -37,6 +38,7 @@ public class UserVocabularyDto {
         this.phonetic = userVocabulary.getVocabulary().getPhonetic();
         this.meaning = userVocabulary.getVocabulary().getMeaning();
         this.exampleSentence = userVocabulary.getVocabulary().getExampleSentence();
+        this.vocabularyId = userVocabulary.getVocabulary().getId();
         this.status = userVocabulary.getStatus() != null ? userVocabulary.getStatus().name() : UserVocabulary.Status.LEARNING.name();
         this.statusDisplayName = userVocabulary.getStatus() != null ? userVocabulary.getStatus().getDisplayName() : UserVocabulary.Status.LEARNING.getDisplayName();
         this.isLearned = userVocabulary.getIsLearned();

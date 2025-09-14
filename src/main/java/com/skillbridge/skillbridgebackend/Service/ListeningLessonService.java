@@ -164,7 +164,7 @@ public class ListeningLessonService {
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng"));
 
         // Nếu là admin -> lấy tất cả
-        if (user.getRole() == User.Role.ADMIN) {
+        if (user.getRole() == User.Role.ADMIN || user.getRole() == User.Role.TEACHER) {
             return lessonRepository.findAllByOrderByCreatedAtDesc();
         }
         // Nếu là teacher -> chỉ lấy bài của mình
@@ -206,7 +206,7 @@ public class ListeningLessonService {
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng"));
 
         // Kiểm tra quyền
-        if (!lesson.getCreatedBy().getId().equals(userId) && !user.getRole().equals(User.Role.ADMIN)) {
+        if (!lesson.getCreatedBy().getId().equals(userId) && !user.getRole().equals(User.Role.TEACHER)) {
             throw new SecurityException("Không có quyền xóa bài học này");
         }
 
@@ -223,7 +223,9 @@ public class ListeningLessonService {
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng"));
 
         // Kiểm tra quyền
-        if (!lesson.getCreatedBy().getId().equals(userId) && !user.getRole().equals(User.Role.ADMIN)) {
+        if (!lesson.getCreatedBy().getId().equals(userId)
+                && !user.getRole().equals(User.Role.ADMIN)
+                && !user.getRole().equals(User.Role.TEACHER)) {
             throw new SecurityException("Không có quyền thay đổi trạng thái bài học này");
         }
 

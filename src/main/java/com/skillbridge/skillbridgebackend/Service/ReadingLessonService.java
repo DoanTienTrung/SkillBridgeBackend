@@ -73,7 +73,7 @@ public class ReadingLessonService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng"));
 
-        if (user.getRole() == User.Role.ADMIN) {
+        if (user.getRole() == User.Role.ADMIN || user.getRole() == User.Role.TEACHER) {
             return readingLessonRepository.findAll();
         } else {
             return readingLessonRepository.findByCreatedById(userId);
@@ -140,7 +140,9 @@ public class ReadingLessonService {
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy người dùng"));
 
         // Kiểm tra quyền
-        if (!lesson.getCreatedBy().getId().equals(userId) && !user.getRole().equals(User.Role.ADMIN)) {
+        if (!lesson.getCreatedBy().getId().equals(userId)
+                && !user.getRole().equals(User.Role.ADMIN)
+                && !user.getRole().equals(User.Role.TEACHER)) {
             throw new SecurityException("Không có quyền thay đổi trạng thái bài đọc này");
         }
 
