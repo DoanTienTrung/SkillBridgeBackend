@@ -15,6 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import com.skillbridge.skillbridgebackend.dto.UserProfileUpdateDto;
 
+import com.skillbridge.skillbridgebackend.entity.PasswordResetToken;
+import com.skillbridge.skillbridgebackend.repository.PasswordResetTokenRepository;
+import com.skillbridge.skillbridgebackend.dto.ForgotPasswordDto;
+import com.skillbridge.skillbridgebackend.dto.ResetPasswordDto;
+import java.security.SecureRandom;
+import java.util.Base64;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -49,6 +56,11 @@ public class UserService {
 
     @Autowired
     private UserVocabularyRepository userVocabularyRepository;
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Autowired
+    private EmailService emailService;
 
     /**
      * Đăng ký user mới
@@ -592,29 +604,50 @@ public class UserService {
         userRepository.delete(user);
     }
 
+    /**
+     * Tạo user mới (Admin function)
+     */
     public User createUser(UserRegistrationDto userData) {
-        // Check if email already exists
-        if (userRepository.existsByEmail(userData.getEmail())) {
-            throw new EmailAlreadyExistsException("Email đã được sử dụng: " + userData.getEmail());
+        try {
+            log.info("Creating new user with email: {}", userData.getEmail());
+
+            // Check email exists
+            if (userRepository.existsByEmail(userData.getEmail())) {
+                throw new EmailAlreadyExistsException("Email đã được sử dụng: " + userData.getEmail());
+            }
+
+            User user = new User();
+            user.setEmail(userData.getEmail());
+            user.setPassword(passwordEncoder.encode(userData.getPassword()));
+            user.setFullName(userData.getFullName());
+            user.setSchool(userData.getSchool());
+            user.setMajor(userData.getMajor());
+            user.setAcademicYear(userData.getAcademicYear());
+            user.setIsActive(true); // Default active
+
+            // Set role from DTO or default to STUDENT
+            if (userData.getRole() != null && !userData.getRole().isEmpty()) {
+                try {
+                    user.setRole(User.Role.valueOf(userData.getRole().toUpperCase()));
+                } catch (IllegalArgumentException e) {
+                    throw new RuntimeException("Role không hợp lệ: " + userData.getRole());
+                }
+            } else {
+                user.setRole(User.Role.STUDENT);
+            }
+
+            User savedUser = userRepository.save(user);
+            log.info("User created successfully with ID: {}", savedUser.getId());
+
+            return savedUser;
+
+        } catch (EmailAlreadyExistsException e) {
+            log.error("Email already exists: {}", userData.getEmail());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error creating user: ", e);
+            throw new RuntimeException("Không thể tạo người dùng: " + e.getMessage());
         }
-
-        User user = new User();
-        user.setEmail(userData.getEmail());
-        user.setPassword(passwordEncoder.encode(userData.getPassword()));
-        user.setFullName(userData.getFullName());
-        user.setSchool(userData.getSchool());
-        user.setMajor(userData.getMajor());
-        user.setAcademicYear(userData.getAcademicYear());
-        user.setIsActive(true);
-
-        // Set role from DTO or default to STUDENT
-        if (userData.getRole() != null && !userData.getRole().isEmpty()) {
-            user.setRole(User.Role.valueOf(userData.getRole().toUpperCase()));
-        } else {
-            user.setRole(User.Role.STUDENT);
-        }
-
-        return userRepository.save(user);
     }
 
     private UserDto convertToUserDto(User user) {
@@ -699,6 +732,205 @@ public class UserService {
 
         return savedUser;
     }
+
+    /**
+     * Xử lý yêu cầu quên mật khẩu
+     */
+    public void processForgotPassword(ForgotPasswordDto request) {
+        try {
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new UserNotFoundException("Không tìm thấy tài khoản với email này"));
+
+            // Kiểm tra số lượng yêu cầu trong 1 giờ (tránh spam)
+            long validTokenCount = passwordResetTokenRepository
+                    .countValidTokensForUser(user, LocalDateTime.now());
+
+            if (validTokenCount >= 3) {
+                throw new RuntimeException("Bạn đã yêu cầu đặt lại mật khẩu quá nhiều lần. Vui lòng chờ 15 phút.");
+            }
+
+            // Vô hiệu hóa các token cũ của user
+            passwordResetTokenRepository.markAllTokensAsUsedForUser(user);
+
+            // Tạo token mới
+            String token = generateSecureToken();
+            LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(15); // Token có hiệu lực 15 phút
+
+            PasswordResetToken resetToken = new PasswordResetToken(token, user, expiryDate);
+            passwordResetTokenRepository.save(resetToken);
+
+            // Gửi email
+            emailService.sendPasswordResetEmail(
+                    user.getEmail(),
+                    user.getFullName(),
+                    token
+            );
+
+            log.info("Password reset token generated for user: {}", user.getEmail());
+
+        } catch (UserNotFoundException e) {
+            // Không tiết lộ thông tin user không tồn tại (security)
+            log.warn("Password reset request for non-existent email: {}", request.getEmail());
+            // Vẫn return success để không tiết lộ email có tồn tại hay không
+        } catch (Exception e) {
+            log.error("Error processing forgot password request", e);
+            throw new RuntimeException("Không thể xử lý yêu cầu. Vui lòng thử lại sau.");
+        }
+    }
+
+    /**
+     * Validate reset token
+     */
+    public boolean validateResetToken(String token) {
+        try {
+            Optional<PasswordResetToken> resetTokenOpt = passwordResetTokenRepository.findByToken(token);
+
+            if (resetTokenOpt.isEmpty()) {
+                return false;
+            }
+
+            PasswordResetToken resetToken = resetTokenOpt.get();
+            return resetToken.isValid();
+
+        } catch (Exception e) {
+            log.error("Error validating reset token", e);
+            return false;
+        }
+    }
+
+    /**
+     * Reset mật khẩu với token
+     */
+    public void resetPassword(ResetPasswordDto request) {
+        // Validate input
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Mật khẩu xác nhận không khớp");
+        }
+
+        // Tìm token
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new RuntimeException("Token không hợp lệ"));
+
+        // Validate token
+        if (!resetToken.isValid()) {
+            if (resetToken.isExpired()) {
+                throw new RuntimeException("Link đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.");
+            } else {
+                throw new RuntimeException("Token không hợp lệ");
+            }
+        }
+
+        try {
+            // Update password
+            User user = resetToken.getUser();
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+
+            // Đánh dấu token đã sử dụng
+            resetToken.setIsUsed(true);
+            passwordResetTokenRepository.save(resetToken);
+
+            // Gửi email xác nhận
+            emailService.sendPasswordChangeConfirmation(user.getEmail(), user.getFullName());
+
+            log.info("Password reset successfully for user: {}", user.getEmail());
+
+        } catch (Exception e) {
+            log.error("Error resetting password", e);
+            throw new RuntimeException("Không thể cập nhật mật khẩu. Vui lòng thử lại.");
+        }
+    }
+
+    /**
+     * Tạo token bảo mật
+     */
+    private String generateSecureToken() {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[32];
+        random.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * Dọn dẹp token hết hạn (chạy định kỳ)
+     */
+    @Transactional
+    public void cleanupExpiredTokens() {
+        try {
+            passwordResetTokenRepository.deleteExpiredTokens(LocalDateTime.now());
+            log.info("Expired password reset tokens cleaned up");
+        } catch (Exception e) {
+            log.error("Error cleaning up expired tokens", e);
+        }
+    }
+
+    /**
+     * Tạo hoặc cập nhật user từ Google profile
+     */
+    public User createOrUpdateGoogleUser(GoogleUserProfileDto googleProfile) {
+        try {
+            log.info("Creating or updating Google user: {}", googleProfile.getEmail());
+
+            // Tìm user theo Google ID trước
+            Optional<User> existingUserByGoogleId = userRepository.findByGoogleId(googleProfile.getId());
+            if (existingUserByGoogleId.isPresent()) {
+                User user = existingUserByGoogleId.get();
+                // Cập nhật thông tin mới từ Google
+                updateUserFromGoogleProfile(user, googleProfile);
+                return userRepository.save(user);
+            }
+
+            // Tìm user theo email (trường hợp user đã đăng ký bằng email thường)
+            Optional<User> existingUserByEmail = userRepository.findByEmail(googleProfile.getEmail());
+            if (existingUserByEmail.isPresent()) {
+                User user = existingUserByEmail.get();
+                // Link Google account với user hiện có
+                user.setGoogleId(googleProfile.getId());
+                user.setProvider(User.AuthProvider.GOOGLE);
+                updateUserFromGoogleProfile(user, googleProfile);
+                return userRepository.save(user);
+            }
+
+            // Tạo user mới từ Google profile
+            User newUser = new User();
+            newUser.setEmail(googleProfile.getEmail());
+            newUser.setFullName(googleProfile.getName());
+            newUser.setGoogleId(googleProfile.getId());
+            newUser.setProvider(User.AuthProvider.GOOGLE);
+            newUser.setProfilePictureUrl(googleProfile.getPicture());
+            newUser.setEmailVerified(googleProfile.getEmailVerified());
+            newUser.setIsActive(true);
+            newUser.setRole(User.Role.STUDENT); // Default role
+
+            // Google users không cần password, tạo random password
+            newUser.setPassword(passwordEncoder.encode(generateRandomPassword()));
+
+            User savedUser = userRepository.save(newUser);
+            log.info("New Google user created successfully: {}", savedUser.getEmail());
+
+            return savedUser;
+
+        } catch (Exception e) {
+            log.error("Error creating/updating Google user", e);
+            throw new RuntimeException("Failed to process Google user", e);
+        }
+    }
+
+    /**
+     * Cập nhật user từ Google profile
+     */
+    private void updateUserFromGoogleProfile(User user, GoogleUserProfileDto googleProfile) {
+        user.setFullName(googleProfile.getName());
+        user.setProfilePictureUrl(googleProfile.getPicture());
+        user.setEmailVerified(googleProfile.getEmailVerified());
+        user.setProvider(User.AuthProvider.GOOGLE);
+
+        log.info("Updated user from Google profile: {}", user.getEmail());
+    }
+
+    /**
+     * Tạo random password cho Google users
+     */
 
 
 }

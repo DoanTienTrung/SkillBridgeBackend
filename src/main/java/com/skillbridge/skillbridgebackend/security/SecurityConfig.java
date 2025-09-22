@@ -44,7 +44,11 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/auth/**",
+                                "/auth/forgot-password",     // ← THÊM
+                                "/auth/validate-reset-token", // ← THÊM
+                                "/auth/reset-password",
+                                "/auth/google/**").permitAll()
 
                         // ✅ THÊM SWAGGER ENDPOINTS
                         .requestMatchers("/v3/api-docs/**").permitAll()

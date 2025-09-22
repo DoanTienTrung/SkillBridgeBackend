@@ -37,4 +37,16 @@ public class UserRegistrationDto {
     
     @Schema(description = "User role", example = "STUDENT", allowableValues = {"STUDENT", "TEACHER", "ADMIN"})
     private String role;
+
+    @Schema(description = "User active status", example = "true")
+    private Boolean isActive = true; // Default active
+
+    // Getter and Setter
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
 }

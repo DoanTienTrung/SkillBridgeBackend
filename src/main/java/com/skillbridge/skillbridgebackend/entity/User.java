@@ -79,6 +79,37 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<UserVocabulary> vocabularyList = new ArrayList<>();
 
+    // Thêm các field mới cho Google OAuth
+    @Column(name = "google_id", unique = true)
+    private String googleId;
+
+    @Column(name = "provider")
+    @Enumerated(EnumType.STRING)
+    private AuthProvider provider = AuthProvider.LOCAL;
+
+    @Column(name = "profile_picture_url")
+    private String profilePictureUrl;
+
+    @Column(name = "email_verified")
+    private Boolean emailVerified = false;
+
+    // Thêm enum AuthProvider vào cuối class
+    public enum AuthProvider {
+        LOCAL("Hệ thống"),
+        GOOGLE("Google"),
+        FACEBOOK("Facebook");
+
+        private final String displayName;
+
+        AuthProvider(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+    }
+
     public enum Role {
         STUDENT("Học viên"),
         TEACHER("Giáo viên"),

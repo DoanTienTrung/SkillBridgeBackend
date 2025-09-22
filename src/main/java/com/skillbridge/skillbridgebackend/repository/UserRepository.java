@@ -133,4 +133,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Tìm users theo role và active
      */
     List<User> findByRoleAndIsActiveTrue(User.Role role);
+
+    /**
+     * Tìm user theo Google ID
+     */
+    Optional<User> findByGoogleId(String googleId);
+
+    /**
+     * Tìm user theo email và provider
+     */
+    Optional<User> findByEmailAndProvider(String email, User.AuthProvider provider);
+
+    /**
+     * Kiểm tra Google ID có tồn tại không
+     */
+    boolean existsByGoogleId(String googleId);
 }
